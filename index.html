@@ -5,25 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Momoka - Programmer CV</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            padding: 20px;
-            background-color: #f4f4f4;
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #0d0d0d;
+            color: #00ffcc;
+            text-align: center;
         }
         .container {
             max-width: 800px;
-            background: #fff;
+            margin: 50px auto;
+            background: rgba(0, 0, 0, 0.8);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            margin: auto;
+            box-shadow: 0 0 20px #00ffcc;
+            border: 1px solid #00ffcc;
         }
         h1, h2 {
-            color: #333;
+            color: #00ffcc;
         }
         .section {
             margin-bottom: 20px;
+            border-bottom: 1px solid #00ffcc;
+            padding-bottom: 10px;
         }
         .contact-info {
             font-size: 14px;
@@ -33,17 +40,21 @@
             padding: 0;
         }
         .skills li, .experience li, .education li {
-            background: #e4e4e4;
+            background: rgba(0, 255, 204, 0.2);
             margin: 5px 0;
             padding: 10px;
             border-radius: 5px;
+            transition: 0.3s;
+        }
+        .skills li:hover, .experience li:hover, .education li:hover {
+            background: rgba(0, 255, 204, 0.5);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Momoka</h1>
-        <p class="contact-info">📍 Bangkok, Thailand | 📧 momoka@example.com | 📞 +66 987654321</p>
+        <p class="contact-info">📍 Bangkok, Thailand | 📧 momokasan@proton.me </p>
         
         <div class="section">
             <h2>Profile</h2>
