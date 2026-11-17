@@ -1,102 +1,405 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-WJTHKN12J8"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-    
-      gtag('config', 'G-WJTHKN12J8');
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>?</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+        background: #04070f;
+      }
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+      }
     </script>
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Momoka - Programmer CV</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
-        
-        body {
-            font-family: 'Orbitron', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #0d0d0d;
-            color: #00ffcc;
-            text-align: center;
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
+      const TAU = Math.PI * 2;
+      const BG = 0x04070f;
+
+      // renderer + scene
+      const rend = new THREE.WebGLRenderer({ antialias: true });
+      rend.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      rend.setSize(window.innerWidth, window.innerHeight);
+      document.body.appendChild(rend.domElement);
+
+      const scn = new THREE.Scene();
+      scn.background = new THREE.Color(BG);
+      scn.fog = new THREE.Fog(BG, 55, 145);
+
+      const MAXD = 70;
+
+      const cam = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 400);
+      cam.position.set(0, 14, MAXD - 2);
+
+      const ctl = new OrbitControls(cam, rend.domElement);
+      ctl.enableDamping = true;
+      ctl.dampingFactor = 0.06;
+      ctl.enablePan = false;
+      ctl.minDistance = 8;
+      ctl.maxDistance = MAXD;
+
+      // lights, keep them soft so the facets stay readable
+      scn.add(new THREE.AmbientLight(0x9fb6cc, 1.15));
+
+      const keyL = new THREE.DirectionalLight(0xffffff, 2.0);
+      keyL.position.set(6, 9, 7);
+      scn.add(keyL);
+
+      const fillL = new THREE.DirectionalLight(0x5fa8ff, 1.3);
+      fillL.position.set(-7, -5, -6);
+      scn.add(fillL);
+
+      // non-indexed verts -> computeVertexNormals gives flat normals for free
+      function mkTris(verts) {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+        g.computeVertexNormals();
+        return g;
+      }
+
+      // body: 3 rings of 4 verts + 2 tips = 24 tris
+      function mkBody() {
+        const rings = [
+          [-1.55, 0.17, 0.11], // tail joint
+          [-0.55, 0.82, 0.52], // widest part
+          [0.75, 0.92, 0.6], // head
+        ];
+        const tipX = 1.85;
+        const tailX = -1.8;
+
+        // diamond cross section
+        const dirs = [
+          [0, 1],
+          [1, 0],
+          [0, -1],
+          [-1, 0],
+        ];
+
+        const rpts = rings.map(([x, ry, rz]) => dirs.map(([dy, dz]) => [x, dy * ry, dz * rz]));
+
+        const v = [];
+
+        // bands between rings
+        for (let r = 0; r < rpts.length - 1; r++) {
+          const A = rpts[r],
+            B = rpts[r + 1];
+          for (let i = 0; i < 4; i++) {
+            const j = (i + 1) % 4;
+            v.push(...A[i], ...A[j], ...B[j]);
+            v.push(...A[i], ...B[j], ...B[i]);
+          }
         }
-        .container {
-            max-width: 800px;
-            margin: 50px auto;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px #00ffcc;
-            border: 1px solid #00ffcc;
+
+        // snout
+        const H = rpts[rpts.length - 1];
+        for (let i = 0; i < 4; i++) {
+          const j = (i + 1) % 4;
+          v.push(...H[i], ...H[j], tipX, 0, 0);
         }
-        h1, h2 {
-            color: #00ffcc;
+
+        // tail cone
+        const T = rpts[0];
+        for (let i = 0; i < 4; i++) {
+          const j = (i + 1) % 4;
+          v.push(...T[j], ...T[i], tailX, 0, 0);
         }
-        .section {
-            margin-bottom: 20px;
-            border-bottom: 1px solid #00ffcc;
-            padding-bottom: 10px;
+
+        return mkTris(v);
+      }
+
+      const bodyGeo = mkBody();
+
+      // forked tail, 3 tris
+      const tailGeo = mkTris([
+        0.05, 0.1, 0, -0.9, 0.66, 0, -0.45, 0.0, 0, 0.05, 0.1, 0, -0.45, 0.0, 0, 0.05, -0.1, 0, 0.05, -0.1, 0, -0.45,
+        0.0, 0, -0.9, -0.66, 0,
+      ]);
+
+      const dorsalGeo = mkTris([0.62, 0.72, 0, -0.62, 0.6, 0, -0.15, 1.3, 0]);
+
+      const pecGeo = mkTris([0.78, -0.16, 0.22, 0.02, -0.16, 0.22, 0.34, -0.6, 0.92]);
+
+      const eyeGeo = mkTris([0.0, 0.085, 0, -0.075, -0.055, 0, 0.075, -0.055, 0]);
+
+      // build the two-material pair (flat facet + glow edges) for a color
+      function mkMats(col) {
+        const f = new THREE.MeshLambertMaterial({
+          color: col,
+          emissive: col.clone().multiplyScalar(0.1),
+          flatShading: true,
+          transparent: true,
+          opacity: 0.34,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+
+        const w = new THREE.MeshBasicMaterial({
+          color: col,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.95,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+
+        return { f, w };
+      }
+
+      function mkFish() {
+        const grp = new THREE.Group();
+
+        const hue = 0.47 + Math.random() * 0.17;
+        const col = new THREE.Color().setHSL(hue, 0.85, 0.62);
+        const bodyMats = mkMats(col);
+
+        // random tail hue, sometimes close to the body, sometimes way off
+        const tailCol = new THREE.Color().setHSL(Math.random(), 0.85, 0.62);
+        const tailMats = mkMats(tailCol);
+
+        const eMat = new THREE.LineBasicMaterial({
+          color: col,
+          transparent: true,
+          opacity: 0.9,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+
+        const addGeo = (g) => {
+          grp.add(new THREE.Mesh(g, bodyMats.f));
+          grp.add(new THREE.Mesh(g, bodyMats.w));
+        };
+
+        addGeo(bodyGeo);
+
+        // tail pivot so it can wag
+        const tail = new THREE.Group();
+        tail.position.x = -1.5;
+        tail.add(new THREE.Mesh(tailGeo, tailMats.f));
+        tail.add(new THREE.Mesh(tailGeo, tailMats.w));
+        grp.add(tail);
+
+        addGeo(dorsalGeo);
+
+        const finR = new THREE.Group();
+        finR.add(new THREE.Mesh(pecGeo, bodyMats.f));
+        finR.add(new THREE.Mesh(pecGeo, bodyMats.w));
+        grp.add(finR);
+
+        const finL = new THREE.Group();
+        finL.scale.z = -1;
+        finL.add(new THREE.Mesh(pecGeo, bodyMats.f));
+        finL.add(new THREE.Mesh(pecGeo, bodyMats.w));
+        grp.add(finL);
+
+        const eyeR = new THREE.LineLoop(eyeGeo, eMat);
+        eyeR.position.set(1.02, 0.2, 0.36);
+        eyeR.rotation.y = 0.5;
+        grp.add(eyeR);
+
+        const eyeL = new THREE.LineLoop(eyeGeo, eMat);
+        eyeL.position.set(1.02, 0.2, -0.36);
+        eyeL.rotation.y = Math.PI - 0.5;
+        grp.add(eyeL);
+
+        return { grp, tail, finR, finL };
+      }
+
+      // spawn centres, spread out and never too close together
+      const N = 2 + Math.floor(Math.random() * 4); // 2..5
+
+      const SPX = 22; // xz spread
+      const SPY = 6; // vertical spread
+      const MINSEP = 8;
+
+      const ctrs = [];
+
+      function pickCtr() {
+        for (let a = 0; a < 300; a++) {
+          const p = new THREE.Vector3(
+            THREE.MathUtils.randFloatSpread(SPX),
+            THREE.MathUtils.randFloatSpread(SPY),
+            THREE.MathUtils.randFloatSpread(SPX)
+          );
+          if (ctrs.every((c) => c.distanceTo(p) >= MINSEP)) {
+            ctrs.push(p);
+            return p;
+          }
         }
-        .contact-info {
-            font-size: 14px;
+        // fallback ring, still separated
+        const ang = Math.random() * TAU;
+        const p = new THREE.Vector3(
+          Math.cos(ang) * SPX * 0.5,
+          THREE.MathUtils.randFloatSpread(SPY),
+          Math.sin(ang) * SPX * 0.5
+        );
+        ctrs.push(p);
+        return p;
+      }
+
+      const fishes = [];
+
+      for (let i = 0; i < N; i++) {
+        const { grp, tail, finR, finL } = mkFish();
+
+        grp.scale.setScalar(THREE.MathUtils.randFloat(0.85, 1.15));
+        scn.add(grp);
+
+        fishes.push({
+          grp,
+          tail,
+          finR,
+          finL,
+
+          ctr: pickCtr(),
+          amp: new THREE.Vector3(
+            THREE.MathUtils.randFloat(2.0, 4.5),
+            THREE.MathUtils.randFloat(0.8, 2.0),
+            THREE.MathUtils.randFloat(2.0, 4.5)
+          ),
+          frq: new THREE.Vector3(
+            THREE.MathUtils.randFloat(0.12, 0.3),
+            THREE.MathUtils.randFloat(0.25, 0.5),
+            THREE.MathUtils.randFloat(0.12, 0.3)
+          ),
+          phs: new THREE.Vector3(Math.random() * TAU, Math.random() * TAU, Math.random() * TAU),
+
+          spd: THREE.MathUtils.randFloat(0.7, 1.3),
+          wSpd: THREE.MathUtils.randFloat(7, 11),
+          wPhs: Math.random() * TAU,
+          wAmp: THREE.MathUtils.randFloat(0.35, 0.6),
+          rPhs: Math.random() * TAU,
+        });
+      }
+
+      // background dust
+      const DUST = 500;
+      const dPos = new Float32Array(DUST * 3);
+
+      for (let i = 0; i < DUST; i++) {
+        const r = 20 + Math.random() * 45;
+        const th = Math.random() * TAU;
+        const ph = Math.acos(THREE.MathUtils.randFloatSpread(2));
+
+        dPos[i * 3 + 0] = r * Math.sin(ph) * Math.cos(th);
+        dPos[i * 3 + 1] = r * Math.cos(ph) * 0.55;
+        dPos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+      }
+
+      const dGeo = new THREE.BufferGeometry();
+      dGeo.setAttribute("position", new THREE.BufferAttribute(dPos, 3));
+
+      const dust = new THREE.Points(
+        dGeo,
+        new THREE.PointsMaterial({
+          color: 0x2a5f7a,
+          size: 0.16,
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        })
+      );
+      scn.add(dust);
+
+      // fish model points down +X, so build a basis from the velocity
+      const UP = new THREE.Vector3(0, 1, 0);
+      const ax = new THREE.Vector3();
+      const ay = new THREE.Vector3();
+      const az = new THREE.Vector3();
+      const m4 = new THREE.Matrix4();
+
+      function aim(obj, dir, roll) {
+        ax.copy(dir).normalize();
+
+        ay.copy(UP);
+        if (Math.abs(ax.dot(ay)) > 0.999) ay.set(0, 0, 1);
+
+        az.crossVectors(ax, ay).normalize();
+        ay.crossVectors(az, ax).normalize();
+
+        m4.makeBasis(ax, ay, az);
+        obj.quaternion.setFromRotationMatrix(m4);
+
+        if (roll) obj.rotateX(roll);
+      }
+
+      const clk = new THREE.Clock();
+      const tmpP = new THREE.Vector3();
+      const tmpD = new THREE.Vector3();
+
+      function tick() {
+        requestAnimationFrame(tick);
+
+        const t = clk.getElapsedTime();
+
+        for (const f of fishes) {
+          const tt = t * f.spd;
+          const { ctr: c, amp: a, frq: fr, phs: ph } = f;
+
+          // pos
+          tmpP.set(
+            c.x + a.x * Math.sin(fr.x * tt + ph.x),
+            c.y + a.y * Math.sin(fr.y * tt + ph.y),
+            c.z + a.z * Math.sin(fr.z * tt + ph.z)
+          );
+
+          // derivative = heading
+          tmpD.set(
+            a.x * fr.x * Math.cos(fr.x * tt + ph.x),
+            a.y * fr.y * Math.cos(fr.y * tt + ph.y),
+            a.z * fr.z * Math.cos(fr.z * tt + ph.z)
+          );
+
+          f.grp.position.copy(tmpP);
+
+          if (tmpD.lengthSq() > 1e-8) {
+            aim(f.grp, tmpD, Math.sin(t * 0.9 + f.rPhs) * 0.18);
+          }
+
+          f.tail.rotation.y = Math.sin(t * f.wSpd + f.wPhs) * f.wAmp;
+
+          const flut = Math.sin(t * f.wSpd * 0.8 + f.wPhs) * 0.25;
+          f.finR.rotation.x = flut;
+          f.finL.rotation.x = -flut;
         }
-        .skills, .experience, .education {
-            list-style-type: none;
-            padding: 0;
-        }
-        .skills li, .experience li, .education li {
-            background: rgba(0, 255, 204, 0.2);
-            margin: 5px 0;
-            padding: 10px;
-            border-radius: 5px;
-            transition: 0.3s;
-        }
-        .skills li:hover, .experience li:hover, .education li:hover {
-            background: rgba(0, 255, 204, 0.5);
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Momoka</h1>
-        <p class="contact-info">📍 Bangkok, Thailand | 📧 momokasan@proton.me </p>
-        
-        <div class="section">
-            <h2>Profile</h2>
-            <p>Passionate programmer with 5+ years of experience in full-stack web development. Skilled in JavaScript, Python, and cloud technologies. Enthusiastic about building scalable and efficient software solutions.</p>
-        </div>
-        
-        <div class="section">
-            <h2>Skills</h2>
-            <ul class="skills">
-                <li>JavaScript (React, Node.js)</li>
-                <li>Python (Django, Flask)</li>
-                <li>Cloud Computing (AWS, GCP)</li>
-                <li>Database Management (MySQL, MongoDB)</li>
-                <li>Version Control (Git, GitHub)</li>
-            </ul>
-        </div>
-        
-        <div class="section">
-            <h2>Experience</h2>
-            <ul class="experience">
-                <li><strong>Software Engineer</strong> - TechCorp Thailand (2021-Present)<br>Developed web applications and optimized backend systems for performance and scalability.</li>
-                <li><strong>Full-Stack Developer</strong> - Innovate Solutions (2018-2021)<br>Built interactive web applications using modern frameworks and cloud technologies.</li>
-            </ul>
-        </div>
-        
-        <div class="section">
-            <h2>Education</h2>
-            <ul class="education">
-                <li>Bachelor’s in Computer Science - Chulalongkorn University (2014-2018)</li>
-            </ul>
-        </div>
-    </div>
-</body>
+
+        dust.rotation.y = t * 0.012;
+        dust.rotation.x = Math.sin(t * 0.05) * 0.05;
+
+        ctl.update();
+        rend.render(scn, cam);
+      }
+
+      tick();
+
+      window.addEventListener("resize", () => {
+        cam.aspect = window.innerWidth / window.innerHeight;
+        cam.updateProjectionMatrix();
+        rend.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
 </html>
